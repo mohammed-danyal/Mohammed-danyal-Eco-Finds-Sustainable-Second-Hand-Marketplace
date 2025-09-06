@@ -107,3 +107,4 @@ def delete_product(product_id):
     cursor.execute('DELETE FROM products WHERE id = ?', (product_id,))
     conn.commit()
     conn.close()
+    #sid
