@@ -9,6 +9,7 @@ load_dotenv()
 
 BREVO_API_KEY =  os.getenv("BREVO_API_KEY")
 SENDER_EMAIL =  os.getenv("SENDER_EMAIL")
+SMS_SENDER = os.getenv("BREVO_SMS_SENDER")
 
 def generate_otp():
     return str(random.randint(100000, 999999))
@@ -43,6 +44,47 @@ def send_email_brevo(to_email):
     else:
         return False
 
+def send_otp_via_sms(phone_number, otp):
+    """Send OTP via SMS using Brevo."""
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = BREVO_API_KEY
+
+    api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
+
+    message = f"Your OTP code is: {otp}"
+    try:
+        send_sms = sib_api_v3_sdk.SendTransacSms(
+            sender=SMS_SENDER,
+            recipient=phone_number,
+            content=message
+        )
+        api_response = api_instance.send_transac_sms(send_sms)
+        print("✅ OTP sent successfully via SMS!")
+        return True
+    except ApiException as e:
+        print(f"❌ Error sending SMS: {e}")
+        return False
+
+
+def verify_otp(sent_otp):
+    """Prompt user for OTP input and verify it."""
+    entered_otp = input("Enter the OTP you received: ").strip()
+    if entered_otp == sent_otp:
+        print("✅ OTP verified successfully.")
+        return True
+    else:
+        print("❌ Invalid OTP.")
+        return False
+
+
+def send_and_verify_sms_otp(phone_number):
+    """Main function to send and verify OTP via SMS."""
+    otp = generate_otp()
+    if send_otp_via_sms(phone_number, otp):
+        return verify_otp(otp)
+    else:
+        print("❌ Failed to send OTP via SMS.")
+        return False
 
 
     
