@@ -7,13 +7,14 @@ from sib_api_v3_sdk.rest import ApiException
 # Load environment variables
 load_dotenv()
 
-BREVO_API_KEY = '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'#os.getenv("BREVO_API_KEY")
-SENDER_EMAIL = 'mddaniyal752@gmail.com'#os.getenv("SENDER_EMAIL")
+BREVO_API_KEY =  os.getenv("BREVO_API_KEY")
+SENDER_EMAIL =  os.getenv("SENDER_EMAIL")
 
 def generate_otp():
     return str(random.randint(100000, 999999))
 
-def send_email_brevo(to_email, otp):
+def send_email_brevo(to_email):
+    otp = generate_otp()
     print("API Key:", BREVO_API_KEY)
     print("Sender Email:", SENDER_EMAIL)
     configuration = sib_api_v3_sdk.Configuration()
@@ -35,4 +36,14 @@ def send_email_brevo(to_email, otp):
         print("✅ OTP sent successfully via Brevo!")
     except ApiException as e:
         print(f"❌ Error: {e}")
-send_email_brevo('nitte0505@gmail.com',generate_otp())
+    entered_otp = input('enter otp: ')
+    if otp == entered_otp:
+        print("Sucessfully logged in")
+        return True
+    else:
+        return False
+
+
+
+    
+send_email_brevo('mddaniyal752@gmail.com')

@@ -7,7 +7,7 @@ import streamlit as st
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Print SQLite version
-$print("SQLite version:", sqlite3.version)
+print("SQLite version:", sqlite3.version)
 
 # Function to connect to SQLite database
 def get_db_connection():
