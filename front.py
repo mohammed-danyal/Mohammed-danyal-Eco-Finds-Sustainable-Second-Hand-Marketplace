@@ -30,6 +30,12 @@ def valid_name(name):
 
 st.set_page_config(page_title="EcoFinds Login", page_icon="🛒", layout="centered")
 
+if "page" not in st.session_state:
+    st.session_state.page = "Login"
+
+if "registered_email" not in st.session_state:
+    st.session_state.registered_email = ""
+
 st.markdown("""
     <style>
     .stButton>button {
@@ -129,8 +135,6 @@ elif page == "Register":
             st.error("Enter a valid email address.")
         elif email in users:
             st.warning("Email already registered.")
-        elif not phone.isdigit():
-            st.error("Enter a valid phone number (digits only).")
         elif password != confirm_password:
             st.error("Passwords do not match.")
         elif not all_ok:
@@ -139,14 +143,32 @@ elif page == "Register":
             users[email] = {
                 "name": name,
                 "dob": str(dob),
-                "phone": full_phone,
                 "password": hash_password(password),
                 "verified": False   # optional: mark unverified initially
             }
             save_users(users)
             st.success("Registration successful! Please verify your identity.")
+            st.session_state.registered_email = email 
             st.session_state.page = "Verify"   # go to the DigiLocker verify page
             st.rerun()
+elif st.session_state.page == "Verify":
+    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+    st.title("Verify your identity")
+    st.write(f"Hi {st.session_state.registered_email}, please verify your account using DigiLocker.")
+
+    if st.button("Verify with DigiLocker"):
+        st.markdown(
+            """<a href='https://digilocker.gov.in/' target='_blank'>
+            <button style='background-color:#FFD814;color:black;
+            border-radius:8px;border:1px solid #FCD200;
+            font-weight:bold;width:100%;height:40px;'>Go to DigiLocker</button></a>""",
+            unsafe_allow_html=True
+        )
+
+    if st.button("Skip for now"):
+        st.session_state.page = "Login"
+        st.rerun()
+        
 
     st.markdown("</div>", unsafe_allow_html=True)
 # ---------- end block ----------
