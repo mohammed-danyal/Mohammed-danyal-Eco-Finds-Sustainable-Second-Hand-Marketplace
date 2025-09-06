@@ -308,4 +308,3 @@ elif page == "Main":
         st.session_state.page = "Login"
         st.rerun()
 
-
