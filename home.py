@@ -6,8 +6,67 @@ import requests
 
 # -------------------- Page config --------------------
 st.set_page_config(page_title="EcoFinds Marketplace", layout="wide")
+def insert_sample_products():
+    conn = get_product_conn()
+    cur = conn.cursor()
 
-# Optional: small dark-mode polish (works even without config.toml)
+    sample_products = [
+        (
+            "iPhone 13 Pro", "₹45,000", "Mumbai", "Mobiles",
+            "128GB, excellent condition, comes with box and charger.",
+            "https://images.pexels.com/photos/5082575/pexels-photo-5082575.jpeg",
+            "Rahul Mehta", "2022", "+91-98765-43210", "rahul@example.com",
+            "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg"
+        ),
+        (
+            "Mountain Bike", "₹8,500", "Bengaluru", "Bicycles",
+            "21-speed MTB, great for trails. Minor scratches.",
+            "https://cdn.moglix.com/p/VFkW4EdbrgeSn-xxlarge.jpg",
+            "Amit Singh", "2021", "+91-91234-56789", "amit@example.com",
+            "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg"
+        ),
+        (
+            "Wooden Dining Table", "₹15,000", "Delhi", "Furniture",
+            "4-seater Sheesham wood table with cushioned chairs.",
+            "https://thetimberguy.com/cdn/shop/products/Buy-Compact-Wooden-Dining-table-with-1-Bench-3-chairs-furniture-set-for-modern-Home_600x.jpg",
+            "Pooja Sharma", "2020", "+91-90123-45678", "pooja@example.com",
+            "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg"
+        )
+    ]
+
+    cur.executemany('''
+        INSERT INTO products 
+        (title, price, location, category, description, image_url, 
+         seller_name, seller_since, seller_phone, seller_email, seller_photo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', sample_products)
+
+    conn.commit()
+    conn.close()
+
+def init_products_table():
+    conn = get_product_conn()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            price TEXT,
+            location TEXT,
+            category TEXT,
+            description TEXT,
+            image_url TEXT,
+            seller_name TEXT,
+            seller_since TEXT,
+            seller_phone TEXT,
+            seller_email TEXT,
+            seller_photo TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Optional: small dark-mode polish
 DARK_CSS = """
 <style>
 :root {
@@ -75,6 +134,11 @@ def get_resized_image_bytes(url: str, max_size=(500, 380)):
 
 # -------------------- Pages --------------------
 def homepage():
+    # Initialize DB + Insert sample data only if empty
+    init_products_table()   
+    if not get_all_products_db():  # only insert if table is empty
+        insert_sample_products()
+
     st.title("🛒 EcoFinds Marketplace")
     st.caption("Scroll the latest second-hand listings")
 
@@ -90,10 +154,9 @@ def homepage():
             with col:
                 img_bytes = get_resized_image_bytes(product["image_url"])
                 if img_bytes:
-                    # ✅ Use the new parameter
                     st.image(img_bytes, use_container_width=True)
                 else:
-                    st.empty()  # no image space if not available
+                    st.empty()
 
                 st.markdown(f'<div class="ec-title">{product["title"]}</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="ec-price">💰 {product["price"]}</div>', unsafe_allow_html=True)
@@ -110,7 +173,6 @@ def homepage():
                     st.rerun()
 
 def product_detail():
-    # Guard
     if "selected_id" not in st.session_state or st.session_state.selected_id is None:
         st.session_state.page = "Home"
         st.rerun()
@@ -153,14 +215,3 @@ def product_detail():
         if st.button("⬅ Back to Home"):
             st.session_state.page = "Home"
             st.rerun()
-
-# -------------------- Main --------------------
-if "page" not in st.session_state:
-    st.session_state.page = "Home"
-if "selected_id" not in st.session_state:
-    st.session_state.selected_id = None
-
-if st.session_state.page == "Home":
-    homepage()
-elif st.session_state.page == "Detail":
-    product_detail()
