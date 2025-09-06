@@ -3,17 +3,20 @@ import json
 import os
 import hashlib
 import re
-
+import random
+import time
 
 USER_FILE = "users.json"
-
+OTP_TTL_SECONDS = 300  # 5 minutes
 
 def load_users():
     if os.path.exists(USER_FILE):
         with open(USER_FILE, "r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except:
+                return {}
     return {}
-
 
 def save_users(users):
     with open(USER_FILE, "w") as f:
@@ -23,21 +26,37 @@ def save_users(users):
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-
 def valid_name(name):
     return bool(re.match(r"^[A-Za-z]+( [A-Za-z]+)+$", name))
 
+def gen_otp():
+    return f"{random.randint(100000, 999999)}"
+
+def now_ts():
+    return int(time.time())
+
+def otp_is_valid(stored_time):
+    return (now_ts() - int(stored_time)) <= OTP_TTL_SECONDS
 
 st.set_page_config(page_title="EcoFinds Login", page_icon="🛒", layout="centered")
 
+# session-state initializations
 if "page" not in st.session_state:
     st.session_state.page = "Login"
-
 if "registered_email" not in st.session_state:
     st.session_state.registered_email = ""
+if "pending_otp" not in st.session_state:
+    st.session_state.pending_otp = ""
+if "pending_otp_time" not in st.session_state:
+    st.session_state.pending_otp_time = 0
+if "email_verified" not in st.session_state:
+    st.session_state.email_verified = False
 
 st.markdown("""
     <style>
+            body, .stApp {
+    font-family: "Times New Roman", Times, serif !important;
+    }
     .stButton>button {
         background-color: #FFD814;
         color: black;
@@ -59,22 +78,93 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
         background: white;
     }
+    /* Force white inputs and readable text */
+    input[type="text"], input[type="password"], textarea {
+    background-color: #ffffff !important;
+    color: #0b0b0b !important;
+    border: 1px solid #ccc !important;
+    border-radius: 6px !important;
+    padding: 8px 10px !important;
+    caret-color: #000000 !important;  /* ensures blinking cursor is visible */
+   }
+            
+            /* ---------- hide streamlit header, menu & footer ---------- */
+#MainMenu { visibility: hidden !important; }
+header { visibility: hidden !important; height: 0px !important; margin: 0px !important; padding: 0px !important; }
+footer { visibility: hidden !important; height: 0px !important; margin: 0px !important; padding: 0px !important; }
+
+/* ---------- brand row (large EcoFinds + cart) ---------- */
+.brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 14px;
+    margin-bottom: 6px;
+}
+
+/* cart SVG/image next to brand */
+.brand-row .brand-cart {
+    width: 44px;
+    height: 44px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* brand name styling */
+.brand-row .brand-title {
+    font-family: "Times New Roman", Times, serif !important;
+    font-size: 44px; /* large size */
+    font-weight: 700;
+    color: #006D77;  /* deep teal (premium) — change as needed */
+    letter-spacing: 0.5px;
+    margin: 0;
+    line-height: 1;
+}
+
+/* smaller site tagline if needed */
+.brand-row .brand-sub {
+    display:block;
+    font-size: 12px;
+    color: #556;
+    text-align:center;
+    margin-top: -6px;
+}
+
     </style>
 """, unsafe_allow_html=True)
 
 users = load_users()
 
-# Session state to handle navigation
-if "page" not in st.session_state:
-    st.session_state.page = "Login"
-
 page = st.session_state.page
 
 if page == "Login":
+    # Brand row with inline SVG cart icon + big Times New Roman title
+    st.markdown(
+        """
+        <div class='brand-row'>
+            <div class='brand-cart'>
+                <!-- simple cart SVG (inline, no external URL) -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#006D77" width="44" height="44">
+                  <path d="M7 4h-2l-1 2h2l3.6 7.59-1.35 2.45C8.89 16.37 9.5 17 10.25 17H19v-2h-8.1c-.14 0-.25-.11-.29-.24L11 13h6.55c.75 0 1.39-.41 1.72-1.03l2.54-5.02A1 1 0 0 0 20.8 5H7z"/>
+                  <circle cx="10.5" cy="19.5" r="1.5" fill="#006D77"/>
+                  <circle cx="18.5" cy="19.5" r="1.5" fill="#006D77"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class='brand-title'>EcoFinds</h1>
+                <div class='brand-sub'>Premium Eco Shopping</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    st.title("Sign in")
-    email = st.text_input("Email address")
-    password = st.text_input("Password", type="password")
+    st.subheader("Sign in")
+
+    email = st.text_input("Email address", placeholder="Enter your email here")
+    password = st.text_input("Password", type="password", placeholder="Enter your password here")
 
     if st.button("Login"):
         if email in users and users[email]["password"] == hash_password(password):
@@ -87,6 +177,11 @@ if page == "Login":
     st.write("New to EcoFinds?")
     if st.button("Create your EcoFinds account"):
         st.session_state.page = "Register"
+        # reset registration-related session flags
+        st.session_state.registered_email = ""
+        st.session_state.pending_otp = ""
+        st.session_state.pending_otp_time = 0
+        st.session_state.email_verified = False
         st.rerun()
 
     if st.button("Forgot Password"):
@@ -99,18 +194,47 @@ elif page == "Register":
     st.markdown("<div class='main-card'>", unsafe_allow_html=True)
     st.title("Create account")
 
-   
-    name = st.text_input("Full Name", key="reg_name")
+    name = st.text_input("Full Name", key="reg_name", placeholder="Enter your full name")
     dob = st.date_input("Date of Birth", key="reg_dob")
-    email = st.text_input("Email address", key="reg_email")
+
+    # EMAIL + inline OTP controls
+    email = st.text_input("Email address", key="reg_email", placeholder="Enter your email here")
+
+    col1, col2 = st.columns([2, 1], gap="small")
+    with col1:
+        if st.button("Send OTP", key="send_email_otp"):
+            if "@" not in email or "." not in email:
+                st.error("Enter a valid email first.")
+            else:
+                otp = gen_otp()
+                st.session_state.pending_otp = otp
+                st.session_state.pending_otp_time = now_ts()
+                st.session_state.registered_email = email
+                st.session_state.email_verified = False
+                # Simulated send: show info (REMOVE in prod)
+                st.info("OTP sent to email (simulated). For testing the OTP is shown below.")
+                st.success(f"Testing OTP (do not use in production): {otp}")
+    with col2:
+        otp_input = st.text_input("Enter OTP", key="reg_email_otp", placeholder="6-digit OTP")
+        if st.button("Verify Email OTP", key="verify_email_otp"):
+            if (st.session_state.pending_otp == "" or st.session_state.registered_email != email):
+                st.error("No OTP pending for this email. Click Send OTP first.")
+            else:
+                # check expiry + match
+                if not otp_is_valid(st.session_state.pending_otp_time):
+                    st.error("OTP expired. Click Send OTP again.")
+                elif otp_input.strip() == st.session_state.pending_otp:
+                    st.session_state.email_verified = True
+                    st.success("Email verified ✅")
+                else:
+                    st.error("Incorrect OTP.")
 
 
     # Passwords
-    password = st.text_input("Password", type="password", key="reg_password")
-    confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
+    password = st.text_input("Password", type="password", key="reg_password", placeholder="Choose a strong password")
+    confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password", placeholder="Re-enter your password")
 
     # ---------------- Password validation (live) ----------------
-    # Make sure you have `import re` at top of file
     rules = {
         "At least 8 characters": len(password) >= 8,
         "One uppercase letter": bool(re.search(r"[A-Z]", password)),
@@ -119,7 +243,7 @@ elif page == "Register":
         "One special character (e.g. !@#$%)": bool(re.search(r"[\W_]", password)),
     }
 
-    # Show rules (red/green check)
+    # Show rules (red/green check) - these will update immediately as streamlit reruns on input
     for rule, passed in rules.items():
         icon = "✅" if passed else "❌"
         color = "green" if passed else "red"
@@ -127,8 +251,9 @@ elif page == "Register":
 
     all_ok = all(rules.values())  # all conditions satisfied
 
-    # Register button (validation enforced)
-    if st.button("Register"):
+    # Register button: disabled until email_verified is True
+    # Note: Streamlit supports `disabled` arg in st.button
+    if st.button("Register", disabled=not st.session_state.email_verified):
         if not valid_name(name):
             st.error("Please enter a valid full name (first and last name).")
         elif "@" not in email or "." not in email:
@@ -144,35 +269,17 @@ elif page == "Register":
                 "name": name,
                 "dob": str(dob),
                 "password": hash_password(password),
-                "verified": False   # optional: mark unverified initially
+                "verified": True   # since email was verified inline
             }
             save_users(users)
-            st.success("Registration successful! Please verify your identity.")
-            st.session_state.registered_email = email 
-            st.session_state.page = "Verify"   # go to the DigiLocker verify page
+            st.success("Registration successful! You are now logged in.")
+            st.session_state.temp_login_email = email
+            st.session_state.page = "Main"
             st.rerun()
-elif st.session_state.page == "Verify":
-    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    st.title("Verify your identity")
-    st.write(f"Hi {st.session_state.registered_email}, please verify your account using DigiLocker.")
-
-    if st.button("Verify with DigiLocker"):
-        st.markdown(
-            """<a href='https://digilocker.gov.in/' target='_blank'>
-            <button style='background-color:#FFD814;color:black;
-            border-radius:8px;border:1px solid #FCD200;
-            font-weight:bold;width:100%;height:40px;'>Go to DigiLocker</button></a>""",
-            unsafe_allow_html=True
-        )
-
-    if st.button("Skip for now"):
-        st.session_state.page = "Login"
-        st.rerun()
-        
 
     st.markdown("</div>", unsafe_allow_html=True)
-# ---------- end block ----------
 
+# NOTE: DigiLocker/Verify page removed as requested
 
 elif page == "Forgot":
     st.markdown("<div class='main-card'>", unsafe_allow_html=True)
@@ -200,3 +307,5 @@ elif page == "Main":
     if st.button("Logout"):
         st.session_state.page = "Login"
         st.rerun()
+
+
