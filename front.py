@@ -74,67 +74,83 @@ if page == "Login":
         if email in users and users[email]["password"] == hash_password(password):
             st.success(f"Welcome back, {users[email]['name']}!")
             st.session_state.page = "Main"
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid email or password")
 
     st.write("New to EcoFinds?")
     if st.button("Create your EcoFinds account"):
         st.session_state.page = "Register"
-        st.experimental_rerun()
+        st.rerun()
 
     if st.button("Forgot Password"):
         st.session_state.page = "Forgot"
-        st.experimental_rerun()
+        st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 elif page == "Register":
     st.markdown("<div class='main-card'>", unsafe_allow_html=True)
     st.title("Create account")
 
-    name = st.text_input("Full Name")
-    dob = st.date_input("Date of Birth")
-    email = st.text_input("Email address")
+   
+    name = st.text_input("Full Name", key="reg_name")
+    dob = st.date_input("Date of Birth", key="reg_dob")
+    email = st.text_input("Email address", key="reg_email")
 
-    # Country codes dropdown (no external package)
-    country_codes = {
-        "India 🇮🇳 (+91)": "+91",
-        "United States 🇺🇸 (+1)": "+1",
-        "United Kingdom 🇬🇧 (+44)": "+44",
-        "Canada 🇨🇦 (+1)": "+1",
-        "Australia 🇦🇺 (+61)": "+61"
+
+    # Passwords
+    password = st.text_input("Password", type="password", key="reg_password")
+    confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
+
+    # ---------------- Password validation (live) ----------------
+    # Make sure you have `import re` at top of file
+    rules = {
+        "At least 8 characters": len(password) >= 8,
+        "One uppercase letter": bool(re.search(r"[A-Z]", password)),
+        "One lowercase letter": bool(re.search(r"[a-z]", password)),
+        "One number": bool(re.search(r"[0-9]", password)),
+        "One special character (e.g. !@#$%)": bool(re.search(r"[\W_]", password)),
     }
 
-    country = st.selectbox("Select your country", list(country_codes.keys()))
-    phone = st.text_input("Phone number (without country code)")
-    full_phone = f"{country_codes[country]} {phone}"
+    # Show rules (red/green check)
+    for rule, passed in rules.items():
+        icon = "✅" if passed else "❌"
+        color = "green" if passed else "red"
+        st.markdown(f"<div style='color:{color}; margin:2px 0;'>{icon} {rule}</div>", unsafe_allow_html=True)
 
-    password = st.text_input("Password", type="password")
-    confirm_password = st.text_input("Confirm Password", type="password")
+    all_ok = all(rules.values())  # all conditions satisfied
 
+    # Register button (validation enforced)
     if st.button("Register"):
         if not valid_name(name):
-            st.error("Please enter a valid full name (first and last name)")
-        elif email in users:
-            st.warning("Email already registered")
-        elif password != confirm_password:
-            st.error("Passwords do not match")
+            st.error("Please enter a valid full name (first and last name).")
         elif "@" not in email or "." not in email:
-            st.error("Enter a valid email address")
+            st.error("Enter a valid email address.")
+        elif email in users:
+            st.warning("Email already registered.")
         elif not phone.isdigit():
-            st.error("Enter a valid phone number")
+            st.error("Enter a valid phone number (digits only).")
+        elif password != confirm_password:
+            st.error("Passwords do not match.")
+        elif not all_ok:
+            st.error("Password must meet all the requirements shown above.")
         else:
             users[email] = {
                 "name": name,
                 "dob": str(dob),
                 "phone": full_phone,
-                "password": hash_password(password)
+                "password": hash_password(password),
+                "verified": False   # optional: mark unverified initially
             }
             save_users(users)
-            st.success("Registration successful! You can now login.")
-            st.session_state.page = "Login"
-            st.experimental_rerun()
+            st.success("Registration successful! Please verify your identity.")
+            st.session_state.page = "Verify"   # go to the DigiLocker verify page
+            st.rerun()
+
     st.markdown("</div>", unsafe_allow_html=True)
+# ---------- end block ----------
+
 
 elif page == "Forgot":
     st.markdown("<div class='main-card'>", unsafe_allow_html=True)
@@ -153,7 +169,7 @@ elif page == "Forgot":
             save_users(users)
             st.success("Password updated successfully! Please login again.")
             st.session_state.page = "Login"
-            st.experimental_rerun()
+            st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "Main":
@@ -161,4 +177,4 @@ elif page == "Main":
     st.write("This is your main content area (like Amazon home page). 🚀")
     if st.button("Logout"):
         st.session_state.page = "Login"
-        st.experimental_rerun()
+        st.rerun()
